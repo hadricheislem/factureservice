@@ -1,5 +1,6 @@
 package com.ocr.factureservice.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -22,7 +23,8 @@ public class DetailsFactureOcr {
 
     private String designation;
 
-    @Column(name = "quantité")
+    // --- CORRECTION 1 : Sans accent 'é' pour la base SQL Server ---
+    @Column(name = "quantite")
     private Double quantite;
 
     private Double prixUnitaireHT;
@@ -39,7 +41,9 @@ public class DetailsFactureOcr {
 
     private Double montantTTC;
 
+    // --- CORRECTION 2 : @JsonIgnore pour éviter la boucle infinie dans l'API REST ---
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "facture_id")
+    @JsonIgnore
     private FactureOcr factureOcr;
 }
