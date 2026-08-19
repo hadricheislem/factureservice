@@ -24,9 +24,9 @@ public class FactureOcr {
 
     private String typeFichier;
 
-    // --- CORRECTION 1 : Stockage du fichier PDF/Image ---
+    // --- CORRECTION 1 : Stockage binaire compatible MySQL (LONGBLOB) ---
     @Lob
-    @Column(name = "contenuFichier", columnDefinition = "VARBINARY(MAX)")
+    @Column(name = "contenu_fichier", columnDefinition = "LONGBLOB")
     private byte[] contenuFichier;
 
     private Integer numeroFacture;
@@ -47,16 +47,16 @@ public class FactureOcr {
 
     private Double montantTTC;
 
-    // --- CORRECTION 2 : Pour les textes long extraits par OCR ---
+    // --- CORRECTION 2 : Texte long extrait par OCR compatible MySQL (LONGTEXT) ---
     @Lob
-    @Column(name = "texteOCR", columnDefinition = "VARCHAR(MAX)")
+    @Column(name = "texteocr", columnDefinition = "LONGTEXT")
     private String texteOCR;
 
     private String statut;
 
     private LocalDate dateCreation;
 
-    // Relation avec les détails de la facture (100% correcte !)
+    // Relation avec les détails de la facture
     @OneToMany(mappedBy = "factureOcr", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
     private List<DetailsFactureOcr> details = new ArrayList<>();
