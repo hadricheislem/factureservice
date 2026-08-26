@@ -1,5 +1,6 @@
 package com.ocr.factureservice.service;
 
+import com.ocr.factureservice.DTO.FactureDataDto;
 import com.ocr.factureservice.entity.FactureOcr;
 import com.ocr.factureservice.repository.FactureOcrRepository;
 import com.ocr.factureservice.services.OcrService;
@@ -27,20 +28,25 @@ public class FactureOcrServiceImpl implements FactureOcrService {
             throw new IllegalArgumentException("Le fichier téléchargé est vide !");
         }
 
-        // 1. Extraction OCR
+        // 1. Extraction OCR + Parsing structuré
+        FactureDataDto dataDto = null;
         String texteExtrait = "";
+
         try {
-            texteExtrait = ocrService.extractText(file.getBytes(), file.getContentType());
+            dataDto = ocrService.processFacture(file.getBytes(), file.getContentType());
+            if (dataDto != null && dataDto.getRawText() != null) {
+                texteExtrait = dataDto.getRawText();
+            }
         } catch (Exception e) {
             texteExtrait = "Erreur lors de l'extraction OCR: " + e.getMessage();
         }
 
-        // 2. Build l'objet (Utilisation de .texteOCR(texteExtrait))
+        // 2. Build de l'objet FactureOcr
         FactureOcr facture = FactureOcr.builder()
                 .nomFichier(file.getOriginalFilename())
                 .typeFichier(file.getContentType())
                 .contenuFichier(file.getBytes())
-                .texteOCR(texteExtrait) // 👈 Hna baddalna l-champ l-texteOCR
+                .texteOCR(texteExtrait)
                 .dateCreation(LocalDate.now())
                 .statut("EXTRAIT")
                 .build();

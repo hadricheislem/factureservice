@@ -1,5 +1,6 @@
 package com.ocr.factureservice;
 
+import com.ocr.factureservice.DTO.FactureDataDto;
 import com.ocr.factureservice.services.OcrService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,23 +18,33 @@ class OcrServiceTest {
     private OcrService ocrService;
 
     @Test
-    void testExtractTextFromImage() throws Exception {
-        // 1. Khoudh n'importe quelle image mta3 facture 3andak f-PC
+    void testProcessFactureWithRealFile() throws Exception {
+        // 1. Path mta3 l-image 3la desktop (بدّل اسم الملف كان مش facture.jpg)
         File file = new File("C:/Users/HP/Desktop/facturemodele.png");
 
-        assertTrue(file.exists(), "Le fichier de test doit exister sur le bureau !");
+        assertTrue(file.exists(), "Le fichier n'a pas été trouvé sur le Bureau !");
 
+        // 2. Lecture du fichier
         byte[] fileBytes = Files.readAllBytes(file.toPath());
+        String contentType = "image/jpeg";
 
-        // 2. Exécution mta3 OCR
-        String result = ocrService.extractText(fileBytes, "image/jpeg");
+        // 3. Exécution du pipeline (OCR + Header + Parsing)
+        FactureDataDto result = ocrService.processFacture(fileBytes, contentType);
 
-        // 3. Affichage du résultat f-Console
-        System.out.println("================ TEXTE EXTRAIT ================");
-        System.out.println(result);
-        System.out.println("===============================================");
+        // 4. Affichage des résultats dans la console
+        System.out.println("==================================================");
+        System.out.println("TEXTE BRUT OCR :");
+        System.out.println(result.getRawText());
+        System.out.println("==================================================");
+        System.out.println("DONNÉES EXTRAITES STRUCTURÉES :");
+        System.out.println("Fournisseur     : " + result.getNomFournisseur());
+        System.out.println("N° Facture      : " + result.getNumeroFacture());
+        System.out.println("Matricule Fiscal: " + result.getMatriculeFiscal());
+        System.out.println("Date Facture    : " + result.getDateFacture());
+        System.out.println("Montant Total   : " + result.getMontantTotal());
+        System.out.println("Montant Taxe    : " + result.getMontantTaxe());
+        System.out.println("==================================================");
 
         assertNotNull(result);
-        assertFalse(result.trim().isEmpty());
     }
 }
