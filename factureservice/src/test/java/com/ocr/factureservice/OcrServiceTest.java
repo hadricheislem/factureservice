@@ -19,16 +19,19 @@ class OcrServiceTest {
 
     @Test
     void testProcessFactureWithRealFile() throws Exception {
-        // 1. Path mta3 l-image 3la desktop (بدّل اسم الملف كان مش facture.jpg)
+        // 1. Path mta3 l-image 3la desktop
         File file = new File("C:/Users/HP/Desktop/facturemodele.png");
 
         assertTrue(file.exists(), "Le fichier n'a pas été trouvé sur le Bureau !");
 
-        // 2. Lecture du fichier
+        // 2. Lecture du fichier et détection dynamique du Content-Type
         byte[] fileBytes = Files.readAllBytes(file.toPath());
-        String contentType = "image/jpeg";
+        String contentType = Files.probeContentType(file.toPath());
+        if (contentType == null) {
+            contentType = "image/png";
+        }
 
-        // 3. Exécution du pipeline (OCR + Header + Parsing)
+        // 3. Exécution du pipeline (OCR + Header + Table + Parsing)
         FactureDataDto result = ocrService.processFacture(fileBytes, contentType);
 
         // 4. Affichage des résultats dans la console
@@ -43,6 +46,19 @@ class OcrServiceTest {
         System.out.println("Date Facture    : " + result.getDateFacture());
         System.out.println("Montant Total   : " + result.getMontantTotal());
         System.out.println("Montant Taxe    : " + result.getMontantTaxe());
+        System.out.println("==================================================");
+        System.out.println("LIGNES ARTICLES EXTRAITES :");
+        if (result.getLignesArticles() == null || result.getLignesArticles().isEmpty()) {
+            System.out.println("Aucune ligne d'article trouvée.");
+        } else {
+            result.getLignesArticles().forEach(ligne -> {
+                System.out.println("- Description : " + ligne.getDesignation());
+                System.out.println("  Quantité    : " + ligne.getQuantite());
+                System.out.println("  Prix Unit.  : " + ligne.getPrixUnitaire());
+                System.out.println("  Total Ligne : " + ligne.getMontantTotal());
+                System.out.println("--------------------------------------------------");
+            });
+        }
         System.out.println("==================================================");
 
         assertNotNull(result);

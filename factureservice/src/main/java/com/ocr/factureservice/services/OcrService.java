@@ -2,6 +2,7 @@ package com.ocr.factureservice.services;
 
 import com.ocr.factureservice.DTO.FactureDataDto;
 import com.ocr.factureservice.DTO.HeaderDataDto;
+import com.ocr.factureservice.DTO.LigneFactureDto;
 import net.sourceforge.tess4j.Tesseract;
 import net.sourceforge.tess4j.TesseractException;
 import org.apache.pdfbox.pdmodel.PDDocument;
@@ -16,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
 @Service
 public class OcrService {
@@ -27,6 +29,9 @@ public class OcrService {
 
     @Autowired
     private HeaderParserService headerParserService;
+
+    @Autowired
+    private TableParserService tableParserService; // Injection du service d'extraction des articles
 
     public OcrService() {
         tesseract = new Tesseract();
@@ -48,7 +53,11 @@ public class OcrService {
         // 2. Parsing de l'en-tête (Header)
         HeaderDataDto header = headerParserService.parseHeader(rawText);
 
-        // 3. Mapping des données
+        // 3. Parsing des lignes d'articles (Tableau)
+        List<LigneFactureDto> lignes = tableParserService.parseLignesArticles(rawText);
+        result.setLignesArticles(lignes);
+
+        // 4. Mapping des données du Header
         result.setNumeroFacture(header.getNumeroFacture());
         result.setMatriculeFiscal(header.getMatriculeFiscal());
         result.setNomFournisseur(header.getNomFournisseur());
@@ -66,6 +75,10 @@ public class OcrService {
 
         FactureDataDto result = parsingService.parseFactureText(rawText);
         HeaderDataDto header = headerParserService.parseHeader(rawText);
+
+        // Parsing des articles
+        List<LigneFactureDto> lignes = tableParserService.parseLignesArticles(rawText);
+        result.setLignesArticles(lignes);
 
         result.setNumeroFacture(header.getNumeroFacture());
         result.setMatriculeFiscal(header.getMatriculeFiscal());

@@ -1,7 +1,9 @@
 package com.ocr.factureservice.controller;
 
+import com.ocr.factureservice.DTO.FactureDataDto;
 import com.ocr.factureservice.entity.FactureOcr;
 import com.ocr.factureservice.service.FactureOcrService;
+import com.ocr.factureservice.services.OcrService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -12,13 +14,32 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/factures")
-@CrossOrigin(origins = "*") // Permet à React de communiquer avec Spring Boot sans erreur CORS
+@CrossOrigin(origins = "*")
 public class FactureOcrController {
 
     @Autowired
     private FactureOcrService factureOcrService;
 
-    // 1. POST /api/factures/upload : Pour uploader un fichier PDF/Image
+    @Autowired
+    private OcrService ocrService;
+
+    // 1. POST /api/factures/import : Extraction OCR
+    @PostMapping("/import")
+    public ResponseEntity<?> importFacture(@RequestParam("file") MultipartFile file) {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body("Le fichier envoyé est vide.");
+        }
+        try {
+            String contentType = file.getContentType();
+            FactureDataDto extractedData = ocrService.processFacture(file.getBytes(), contentType);
+            return ResponseEntity.ok(extractedData);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Erreur lors du traitement OCR : " + e.getMessage());
+        }
+    }
+
+    // 2. POST /api/factures/upload : Sauvegarde directe
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFacture(@RequestParam("file") MultipartFile file) {
         try {
@@ -30,14 +51,14 @@ public class FactureOcrController {
         }
     }
 
-    // 2. GET /api/factures : Pour récupérer la liste de toutes les factures
+    // 3. GET /api/factures : Liste de toutes les factures
     @GetMapping
     public ResponseEntity<List<FactureOcr>> getAllFactures() {
         List<FactureOcr> factures = factureOcrService.getAllFactures();
         return ResponseEntity.ok(factures);
     }
 
-    // 3. GET /api/factures/{id} : Pour récupérer une facture spécifique par son ID
+    // 4. GET /api/factures/{id} : Facture par ID
     @GetMapping("/{id}")
     public ResponseEntity<FactureOcr> getFactureById(@PathVariable Long id) {
         return factureOcrService.getFactureById(id)
@@ -45,7 +66,7 @@ public class FactureOcrController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 4. DELETE /api/factures/{id} : Pour supprimer une facture par son ID
+    // 5. DELETE /api/factures/{id} : Suppression par ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFacture(@PathVariable Long id) {
         factureOcrService.deleteFacture(id);
