@@ -32,11 +32,12 @@ public class FactureParsingService {
     }
 
     private BigDecimal extractMontantTotal(String text) {
-        Pattern pattern = Pattern.compile("TOTAL[\\s\\S]*?(\\d+([,.]\\d{1,2})?)", Pattern.CASE_INSENSITIVE);
+        // Regex corrigé : accepte de 1 à 4 décimales (ex: 4201,6806 ou 5000) et nettoie les espaces/symboles
+        Pattern pattern = Pattern.compile("(?:TOTAL|TTC)[\\s\\S]*?(\\d+(?:[,.]\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(text);
 
         if (matcher.find()) {
-            String valueStr = matcher.group(1).replace(",", ".");
+            String valueStr = matcher.group(1).replace(",", ".").trim();
             try {
                 return new BigDecimal(valueStr);
             } catch (NumberFormatException e) {
@@ -47,11 +48,12 @@ public class FactureParsingService {
     }
 
     private BigDecimal extractMontantTaxe(String text) {
-        Pattern pattern = Pattern.compile("(?:TAXE|TVA)[\\s\\S]*?(\\d+[,.]\\d{2})", Pattern.CASE_INSENSITIVE);
+        // Regex corrigé : accepte de 1 à 4 décimales pour les montants de taxe
+        Pattern pattern = Pattern.compile("(?:TAXE|TVA)[\\s\\S]*?(\\d+(?:[,.]\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(text);
 
         if (matcher.find()) {
-            String valueStr = matcher.group(1).replace(",", ".");
+            String valueStr = matcher.group(1).replace(",", ".").trim();
             try {
                 return new BigDecimal(valueStr);
             } catch (NumberFormatException e) {
@@ -67,11 +69,12 @@ public class FactureParsingService {
 
         if (matcher.find()) {
             String dateStr = matcher.group(1).replace("-", "/");
-            try {
-                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
-                return LocalDate.parse(dateStr, formatter);
-            } catch (Exception e) {
-                return null;
+            String[] formats = {"dd/MM/yyyy", "MM/dd/yyyy", "yyyy/MM/dd"};
+            for (String format : formats) {
+                try {
+                    return LocalDate.parse(dateStr, DateTimeFormatter.ofPattern(format));
+                } catch (Exception ignored) {
+                }
             }
         }
         return null;

@@ -17,6 +17,7 @@ import java.io.File;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
@@ -31,70 +32,117 @@ public class OcrService {
     private HeaderParserService headerParserService;
 
     @Autowired
-    private TableParserService tableParserService; // Injection du service d'extraction des articles
+    private TableParserService tableParserService;
 
     public OcrService() {
         tesseract = new Tesseract();
+        // Massar Tessdata
         tesseract.setDatapath("C:/Program Files/Tesseract-OCR/tessdata");
         tesseract.setLanguage("fra");
     }
 
     public FactureDataDto processFacture(byte[] fileBytes, String contentType) throws Exception {
-        String rawText;
-        if ("application/pdf".equals(contentType)) {
-            rawText = extractTextFromPdf(fileBytes);
-        } else {
-            rawText = extractTextFromImage(fileBytes);
+        if (fileBytes == null || fileBytes.length == 0) {
+            throw new IllegalArgumentException("Le fichier envoyé est vide.");
+        }
+
+        String rawText = "";
+        try {
+            if (contentType != null && contentType.toLowerCase().contains("pdf")) {
+                rawText = extractTextFromPdf(fileBytes);
+            } else {
+                rawText = extractTextFromImage(fileBytes);
+            }
+        } catch (Exception e) {
+            System.err.println("Erreur Tesseract OCR: " + e.getMessage());
+            e.printStackTrace();
+            throw new Exception("Erreur Tesseract/OCR : " + e.getMessage());
         }
 
         // 1. Parsing général (Montants)
         FactureDataDto result = parsingService.parseFactureText(rawText);
+        if (result == null) {
+            result = new FactureDataDto();
+            result.setRawText(rawText);
+        }
 
-        // 2. Parsing de l'en-tête (Header)
-        HeaderDataDto header = headerParserService.parseHeader(rawText);
+        // 2. Parsing Header (En-tête)
+        try {
+            HeaderDataDto header = headerParserService.parseHeader(rawText);
+            if (header != null) {
+                if (header.getNumeroFacture() != null) {
+                    result.setNumeroFacture(header.getNumeroFacture());
+                }
+                if (header.getMatriculeFiscal() != null) {
+                    result.setMatriculeFiscal(header.getMatriculeFiscal());
+                }
+                if (header.getNomFournisseur() != null) {
+                    result.setNomFournisseur(header.getNomFournisseur());
+                }
+                if (header.getDateFacture() != null && !header.getDateFacture().isBlank()) {
+                    LocalDate parsedDate = parseStringToLocalDate(header.getDateFacture());
+                    if (parsedDate != null) {
+                        result.setDateFacture(parsedDate);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Avertissement HeaderParserService: " + e.getMessage());
+        }
 
-        // 3. Parsing des lignes d'articles (Tableau)
-        List<LigneFactureDto> lignes = tableParserService.parseLignesArticles(rawText);
-        result.setLignesArticles(lignes);
-
-        // 4. Mapping des données du Header
-        result.setNumeroFacture(header.getNumeroFacture());
-        result.setMatriculeFiscal(header.getMatriculeFiscal());
-        result.setNomFournisseur(header.getNomFournisseur());
-
-        // Conversion String -> LocalDate
-        if (header.getDateFacture() != null && !header.getDateFacture().isEmpty()) {
-            result.setDateFacture(parseStringToLocalDate(header.getDateFacture()));
+        // 3. Parsing Articles (Tableau)
+        try {
+            List<LigneFactureDto> lignes = tableParserService.parseLignesArticles(rawText);
+            result.setLignesArticles(lignes != null ? lignes : new ArrayList<>());
+        } catch (Exception e) {
+            System.err.println("Avertissement TableParserService: " + e.getMessage());
+            result.setLignesArticles(new ArrayList<>());
         }
 
         return result;
     }
 
     public FactureDataDto processFacture(File file) throws Exception {
+        if (file == null || !file.exists()) {
+            throw new IllegalArgumentException("Le fichier spécifié n'existe pas.");
+        }
         String rawText = tesseract.doOCR(file);
+        return processParsedText(rawText);
+    }
 
+    private FactureDataDto processParsedText(String rawText) {
         FactureDataDto result = parsingService.parseFactureText(rawText);
-        HeaderDataDto header = headerParserService.parseHeader(rawText);
+        if (result == null) {
+            result = new FactureDataDto();
+            result.setRawText(rawText);
+        }
 
-        // Parsing des articles
-        List<LigneFactureDto> lignes = tableParserService.parseLignesArticles(rawText);
-        result.setLignesArticles(lignes);
+        try {
+            HeaderDataDto header = headerParserService.parseHeader(rawText);
+            if (header != null) {
+                result.setNumeroFacture(header.getNumeroFacture());
+                result.setMatriculeFiscal(header.getMatriculeFiscal());
+                result.setNomFournisseur(header.getNomFournisseur());
+                if (header.getDateFacture() != null && !header.getDateFacture().isBlank()) {
+                    result.setDateFacture(parseStringToLocalDate(header.getDateFacture()));
+                }
+            }
+        } catch (Exception ignored) {}
 
-        result.setNumeroFacture(header.getNumeroFacture());
-        result.setMatriculeFiscal(header.getMatriculeFiscal());
-        result.setNomFournisseur(header.getNomFournisseur());
-
-        if (header.getDateFacture() != null && !header.getDateFacture().isEmpty()) {
-            result.setDateFacture(parseStringToLocalDate(header.getDateFacture()));
+        try {
+            List<LigneFactureDto> lignes = tableParserService.parseLignesArticles(rawText);
+            result.setLignesArticles(lignes != null ? lignes : new ArrayList<>());
+        } catch (Exception ignored) {
+            result.setLignesArticles(new ArrayList<>());
         }
 
         return result;
     }
 
-    // Méthode utilitaire pour convertir les différents formats de date
     private LocalDate parseStringToLocalDate(String dateStr) {
-        String cleanedDate = dateStr.replaceAll("[.-]", "/");
-        String[] formats = {"dd/MM/yyyy", "yyyy/MM/dd", "d/M/yyyy"};
+        if (dateStr == null || dateStr.isBlank()) return null;
+        String cleanedDate = dateStr.replaceAll("[.-]", "/").trim();
+        String[] formats = {"dd/MM/yyyy", "MM/dd/yyyy", "yyyy/MM/dd", "d/M/yyyy"};
 
         for (String format : formats) {
             try {
@@ -106,12 +154,13 @@ public class OcrService {
     }
 
     private String extractTextFromImage(byte[] imageBytes) throws IOException, TesseractException {
-        ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes);
-        BufferedImage bufferedImage = ImageIO.read(bais);
-        if (bufferedImage == null) {
-            throw new IllegalArgumentException("Format d'image non supporté ou fichier corrompu.");
+        try (ByteArrayInputStream bais = new ByteArrayInputStream(imageBytes)) {
+            BufferedImage bufferedImage = ImageIO.read(bais);
+            if (bufferedImage == null) {
+                throw new IllegalArgumentException("Format d'image non supporté ou fichier corrompu.");
+            }
+            return tesseract.doOCR(bufferedImage);
         }
-        return tesseract.doOCR(bufferedImage);
     }
 
     private String extractTextFromPdf(byte[] pdfBytes) throws IOException, TesseractException {

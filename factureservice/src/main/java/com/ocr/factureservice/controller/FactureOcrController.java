@@ -10,7 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/factures")
@@ -26,7 +28,7 @@ public class FactureOcrController {
     // 1. POST /api/factures/import : Extraction OCR
     @PostMapping("/import")
     public ResponseEntity<?> importFacture(@RequestParam("file") MultipartFile file) {
-        if (file.isEmpty()) {
+        if (file == null || file.isEmpty()) {
             return ResponseEntity.badRequest().body("Le fichier envoyé est vide.");
         }
         try {
@@ -34,18 +36,28 @@ public class FactureOcrController {
             FactureDataDto extractedData = ocrService.processFacture(file.getBytes(), contentType);
             return ResponseEntity.ok(extractedData);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Erreur lors du traitement OCR : " + e.getMessage());
+            e.printStackTrace(); // طباعة الخطأ كاملاً في Terminal لسهولة التتبع
+
+            // إرجاع كائن JSON منظم للـ React يحتوي على تفاصيل الخطأ
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Erreur lors du traitement OCR");
+            errorResponse.put("message", e.getMessage());
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
     // 2. POST /api/factures/upload : Sauvegarde directe
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFacture(@RequestParam("file") MultipartFile file) {
+        if (file == null || file.isEmpty()) {
+            return ResponseEntity.badRequest().body("Le fichier envoyé est vide.");
+        }
         try {
             FactureOcr savedFacture = factureOcrService.uploadEtSauvegarderFacture(file);
             return new ResponseEntity<>(savedFacture, HttpStatus.CREATED);
         } catch (Exception e) {
+            e.printStackTrace();
             return new ResponseEntity<>("Erreur lors de l'upload du fichier: " + e.getMessage(),
                     HttpStatus.INTERNAL_SERVER_ERROR);
         }
