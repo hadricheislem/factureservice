@@ -26,13 +26,14 @@ public class FactureParsingService {
 
         dto.setMontantTotal(total != null ? total.doubleValue() : null);
         dto.setMontantTaxe(taxe != null ? taxe.doubleValue() : null);
+
+        // تمرير التاريخ بعد تحويله إلى String بدلاً من LocalDate
         dto.setDateFacture(extractDate(rawText));
 
         return dto;
     }
 
     private BigDecimal extractMontantTotal(String text) {
-        // Regex corrigé : accepte de 1 à 4 décimales (ex: 4201,6806 ou 5000) et nettoie les espaces/symboles
         Pattern pattern = Pattern.compile("(?:TOTAL|TTC)[\\s\\S]*?(\\d+(?:[,.]\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(text);
 
@@ -48,7 +49,6 @@ public class FactureParsingService {
     }
 
     private BigDecimal extractMontantTaxe(String text) {
-        // Regex corrigé : accepte de 1 à 4 décimales pour les montants de taxe
         Pattern pattern = Pattern.compile("(?:TAXE|TVA)[\\s\\S]*?(\\d+(?:[,.]\\d{1,4})?)", Pattern.CASE_INSENSITIVE);
         Matcher matcher = pattern.matcher(text);
 
@@ -63,7 +63,8 @@ public class FactureParsingService {
         return null;
     }
 
-    private LocalDate extractDate(String text) {
+    // تم تغيير نوع الإرجاع إلى String ليتوافق مع DTO والـ Frontend
+    private String extractDate(String text) {
         Pattern pattern = Pattern.compile("(\\d{2}[/-]\\d{2}[/-]\\d{4})");
         Matcher matcher = pattern.matcher(text);
 
@@ -72,10 +73,12 @@ public class FactureParsingService {
             String[] formats = {"dd/MM/yyyy", "MM/dd/yyyy", "yyyy/MM/dd"};
             for (String format : formats) {
                 try {
-                    return LocalDate.parse(dateStr, DateTimeFormatter.ofPattern(format));
+                    LocalDate parsedDate = LocalDate.parse(dateStr, DateTimeFormatter.ofPattern(format));
+                    return parsedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy"));
                 } catch (Exception ignored) {
                 }
             }
+            return dateStr; // في حال عدم مطابقة الفرمتة يتم إرجاع النص الملتقط كما هو
         }
         return null;
     }

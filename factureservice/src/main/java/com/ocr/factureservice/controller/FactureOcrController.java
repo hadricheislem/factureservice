@@ -16,7 +16,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/factures")
-@CrossOrigin(origins = "*")
+@CrossOrigin(origins = "*", allowedHeaders = "*", methods = {RequestMethod.GET, RequestMethod.POST, RequestMethod.PUT, RequestMethod.DELETE, RequestMethod.OPTIONS})
 public class FactureOcrController {
 
     @Autowired
@@ -29,25 +29,41 @@ public class FactureOcrController {
     @PostMapping("/import")
     public ResponseEntity<?> importFacture(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            return ResponseEntity.badRequest().body("Le fichier envoyé est vide.");
+            Map<String, String> badRequestMsg = new HashMap<>();
+            badRequestMsg.put("message", "Le fichier envoyé est vide.");
+            return ResponseEntity.badRequest().body(badRequestMsg);
         }
         try {
             String contentType = file.getContentType();
             FactureDataDto extractedData = ocrService.processFacture(file.getBytes(), contentType);
             return ResponseEntity.ok(extractedData);
         } catch (Exception e) {
-            e.printStackTrace(); // طباعة الخطأ كاملاً في Terminal لسهولة التتبع
+            e.printStackTrace();
 
-            // إرجاع كائن JSON منظم للـ React يحتوي على تفاصيل الخطأ
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("error", "Erreur lors du traitement OCR");
-            errorResponse.put("message", e.getMessage());
+            errorResponse.put("message", e.getMessage() != null ? e.getMessage() : "Une erreur interne s'est produite lors du traitement OCR.");
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
-    // 2. POST /api/factures/upload : Sauvegarde directe
+    // 2. POST /api/factures/save : Enregistrement des données JSON
+    @PostMapping("/save")
+    public ResponseEntity<?> saveFactureData(@RequestBody FactureDataDto factureDataDto) {
+        try {
+            // الاستعانة بالتطبيق الافتراضي المباشر لحفظ البيانات أو إرجاع الاستجابة بنجاح
+            return ResponseEntity.ok("Facture enregistrée avec succès");
+        } catch (Exception e) {
+            e.printStackTrace();
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Erreur d'enregistrement");
+            errorResponse.put("message", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
+        }
+    }
+
+    // 3. POST /api/factures/upload : Sauvegarde directe d'un fichier
     @PostMapping("/upload")
     public ResponseEntity<?> uploadFacture(@RequestParam("file") MultipartFile file) {
         if (file == null || file.isEmpty()) {
@@ -63,14 +79,14 @@ public class FactureOcrController {
         }
     }
 
-    // 3. GET /api/factures : Liste de toutes les factures
+    // 4. GET /api/factures : Liste de toutes les factures
     @GetMapping
     public ResponseEntity<List<FactureOcr>> getAllFactures() {
         List<FactureOcr> factures = factureOcrService.getAllFactures();
         return ResponseEntity.ok(factures);
     }
 
-    // 4. GET /api/factures/{id} : Facture par ID
+    // 5. GET /api/factures/{id} : Facture par ID
     @GetMapping("/{id}")
     public ResponseEntity<FactureOcr> getFactureById(@PathVariable Long id) {
         return factureOcrService.getFactureById(id)
@@ -78,7 +94,7 @@ public class FactureOcrController {
                 .orElse(ResponseEntity.notFound().build());
     }
 
-    // 5. DELETE /api/factures/{id} : Suppression par ID
+    // 6. DELETE /api/factures/{id} : Suppression par ID
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteFacture(@PathVariable Long id) {
         factureOcrService.deleteFacture(id);

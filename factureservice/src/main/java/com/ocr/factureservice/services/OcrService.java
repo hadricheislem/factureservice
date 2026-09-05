@@ -82,7 +82,10 @@ public class OcrService {
                 if (header.getDateFacture() != null && !header.getDateFacture().isBlank()) {
                     LocalDate parsedDate = parseStringToLocalDate(header.getDateFacture());
                     if (parsedDate != null) {
-                        result.setDateFacture(parsedDate);
+                        // تحويل الـ LocalDate إلى String ليتوافق مع الـ DTO والواجهة React
+                        result.setDateFacture(parsedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                    } else {
+                        result.setDateFacture(header.getDateFacture());
                     }
                 }
             }
@@ -124,7 +127,12 @@ public class OcrService {
                 result.setMatriculeFiscal(header.getMatriculeFiscal());
                 result.setNomFournisseur(header.getNomFournisseur());
                 if (header.getDateFacture() != null && !header.getDateFacture().isBlank()) {
-                    result.setDateFacture(parseStringToLocalDate(header.getDateFacture()));
+                    LocalDate parsedDate = parseStringToLocalDate(header.getDateFacture());
+                    if (parsedDate != null) {
+                        result.setDateFacture(parsedDate.format(DateTimeFormatter.ofPattern("dd/MM/yyyy")));
+                    } else {
+                        result.setDateFacture(header.getDateFacture());
+                    }
                 }
             }
         } catch (Exception ignored) {}
