@@ -48,12 +48,12 @@ public class FactureOcrController {
         }
     }
 
-    // 2. POST /api/factures/save : Enregistrement des données JSON
+    // 2. POST /api/factures/save : Enregistrement effectif dans la base de données
     @PostMapping("/save")
     public ResponseEntity<?> saveFactureData(@RequestBody FactureDataDto factureDataDto) {
         try {
-            // الاستعانة بالتطبيق الافتراضي المباشر لحفظ البيانات أو إرجاع الاستجابة بنجاح
-            return ResponseEntity.ok("Facture enregistrée avec succès");
+            FactureOcr savedFacture = factureOcrService.saveFactureData(factureDataDto);
+            return new ResponseEntity<>(savedFacture, HttpStatus.CREATED);
         } catch (Exception e) {
             e.printStackTrace();
             Map<String, String> errorResponse = new HashMap<>();
